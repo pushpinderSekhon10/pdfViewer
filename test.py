@@ -1,11 +1,9 @@
 import fitz  # PyMuPDF
 import tkinter as tk
-from tkinter import PhotoImage, Label, Button
+from tkinter import *
+from tkinter import ttk
 
 from PyPDF2 import PdfReader, PdfWriter
-
-
-
 
 # Define a class for our PDF viewer application
 class PDFViewer:
@@ -18,6 +16,8 @@ class PDFViewer:
         self.document = fitz.open(pdf_path)  # Open the PDF file using PyMuPDF
         self.page_number = 0  # Start displaying from the first page
 
+        frm = tk.Frame(master, width="1000", height="1000", bd="10",bg="#6FEA99")
+        frm.pack()
         # Setup a label widget for displaying the current page number
         self.page_label = Label(master, text="")
         self.page_label.pack()  # Pack the label widget into the master widget
@@ -27,15 +27,15 @@ class PDFViewer:
         self.image_label.pack()  # Pack the image label into the master widget
 
         # Setup a button for navigating to the previous page
-        btn_prev = Button(master, text="<< Previous", command=self.show_previous_page)
+        btn_prev = Button(frm, text="<< Previous", command=self.show_previous_page)
         btn_prev.pack(side=tk.LEFT)  # Place the button on the left side of the window
 
         # Setup a button for navigating to the next page
-        btn_next = Button(master, text="Next >>", command=self.show_next_page)
+        btn_next = Button(frm, text="Next >>", command=self.show_next_page)
         btn_next.pack(side=tk.RIGHT)  # Place the button on the right side of the window
 
         # Setup a button to show the text of the current PDF page
-        btn_text = Button(master, text="Show Text", command=self.show_text_window)
+        btn_text = Button(frm, text="Show Text", command=self.show_text_window)
         btn_text.pack(side=tk.BOTTOM)
 
         # Display the initial page
