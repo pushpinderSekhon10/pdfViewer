@@ -13,7 +13,6 @@ class PDFViewer:
         self.pdf_path = None  # Path to the currently loaded PDF file
         self.document = None  # PyMuPDF document object
         self.page_number = 0  # Start displaying from the first page
-        self.zoom_factor = 1.0  # Start with a zoom factor of 1.0
 
         style = ttk.Style()
         style.configure('Main.TFrame', background='#6FEA99')
@@ -32,7 +31,7 @@ class PDFViewer:
         Grid.columnconfigure(frm, 6, weight=1)
         Grid.rowconfigure(frm, 2, weight=1)
 
-        self.master.bind("<Configure>", self.dynamic_canvas)
+        #self.master.bind("<Configure>", self.dynamic_canvas)
 
         btn_zoom_in = Button(frm, text="Zoom In", command=self.zoom_in).grid(row=0, column=1)
 
@@ -53,6 +52,10 @@ class PDFViewer:
         self.canvas = tk.Canvas(frm, bg="white")
         self.canvas.grid(row=2, column=6, sticky='nsew')
 
+
+        self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.canvas.config(width=700, height=800)
+
         # Create vertical and horizontal scrollbars
         #self.v_scroll = tk.Scrollbar(frm, orient=tk.VERTICAL, command=self.canvas.yview)
         #self.v_scroll.pack(side=tk.RIGHT, fill=tk.Y)  # Attach vertical scrollbar to the right side
@@ -67,17 +70,16 @@ class PDFViewer:
         #self.page_label = Label(frm, text="")
         #self.page_label.pack()  # Pack the label widget into the frame
 
-    def dynamic_canvas(self, event):
-
-        window_width = self.master.winfo_width()
-        window_height = self.master.winfo_height()
-
-        canvas_width = min(600, window_width)
-        canvas_height = min(700, window_height)
-
-        self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-
-        self.canvas.config(width=canvas_width, height=canvas_height)
+    # def dynamic_canvas(self, event):
+    #
+    #     window_width = self.master.winfo_width()
+    #     window_height = self.master.winfo_height()
+    #
+    #     canvas_width = min(700, window_width)
+    #     canvas_height = min(800, window_height)
+    #
+    #     self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    #     self.canvas.config(width=canvas_width, height=canvas_height)
 
     def open_pdf(self):
         file_path = filedialog.askopenfilename(
@@ -94,6 +96,7 @@ class PDFViewer:
         self.document = fitz.open(pdf_path)  # Open the PDF file using PyMuPDF
         self.page_number = self.page_number  # open current page number on rotated pdf
 
+
     # Method to display the current page
     def show_page(self):
         if not self.document:
@@ -101,8 +104,13 @@ class PDFViewer:
 
         # Render the current page as a pixmap (an image) with zoom
         page = self.document.load_page(self.page_number)
-        mat = fitz.Matrix(self.zoom_factor, self.zoom_factor)  # Create transformation matrix for zoom
+        zoom_x = 700 / page.rect.width
+        zoom_y = 800 / page.rect.height
+
+        mat = fitz.Matrix(zoom_x, zoom_y)  # Create transformation matrix for zoom
+
         pix = page.get_pixmap(matrix=mat)
+
         img = PhotoImage(data=pix.tobytes("ppm"))  # Convert the pixmap to a Tkinter PhotoImage
 
         # Clear the previous image if any
