@@ -13,6 +13,9 @@ class PDFViewer:
         self.pdf_path = None  # Path to the currently loaded PDF file
         self.document = None  # PyMuPDF document object
         self.page_number = 0  # Start displaying from the first page
+        self.zoom = 1
+        self.width = 550
+        self.height = 610
 
         style = ttk.Style()
         style.configure('Main.TFrame', background='#6FEA99')
@@ -28,30 +31,29 @@ class PDFViewer:
         frm = ttk.Frame(root, padding="3 12 3 12", style='Main.TFrame')
         frm.pack(fill='both', expand=True, padx=20, pady=20)
 
-        Grid.columnconfigure(frm, 6, weight=1)
-        Grid.rowconfigure(frm, 2, weight=1)
+        Grid.columnconfigure(frm, 2, weight=2)
+        Grid.rowconfigure(frm, 2, weight=2)
 
         #self.master.bind("<Configure>", self.dynamic_canvas)
 
-        btn_zoom_in = Button(frm, text="Zoom In", command=self.zoom_in).grid(row=0, column=1)
+        btn_zoom_in = Button(frm, text="Zoom In", command=self.zoom_in).grid(row=0, column=1, sticky='e', padx=5, pady=5)
 
-        btn_zoom_out = Button(frm, text="Zoom Out", command=self.zoom_out).grid(row=0, column=11)
+        btn_zoom_out = Button(frm, text="Zoom Out", command=self.zoom_out).grid(row=0, column=3, sticky='w',padx=5, pady=5)
 
-        btn_open = Button(frm, text="Open PDF", command=self.open_pdf).grid(row=3, column=1)
+        btn_prev = Button(frm, text="<< Previous", command=self.show_previous_page).grid(row=1, column=1, sticky='e', padx=5, pady=5)
 
-        btn_prev = Button(frm, text="<< Previous", command=self.show_previous_page).grid(row=1,column=1)
+        btn_next = Button(frm, text="Next >>", command=self.show_next_page).grid(row=1, column=3, sticky='w', padx=5, pady=5)
 
-        btn_next = Button(frm, text="Next >>", command=self.show_next_page).grid(row=1,column=11)
+        btn_open = Button(frm, text="Open PDF", command=self.open_pdf).grid(row=3, column=1, padx=5, pady=5)
 
-        btn_text = Button(frm, text="Show Text", command=self.show_text_window).grid(row=5,column=1)
+        btn_text = Button(frm, text="Show Text", command=self.show_text_window).grid(row=5,column=1, padx=5, pady=5)
 
-        btn_merge = Button(frm, text="Merge PDFs", command=self.merge).grid(row=5,column=0,)
+        btn_merge = Button(frm, text="Merge PDFs", command=self.merge).grid(row=5,column=0, padx=5, pady=5)
 
-        btn_rotate = Button(frm, text="Rotate Page", command=self.rotate_current_page).grid(row=4,column=0)
+        btn_rotate = Button(frm, text="Rotate Page", command=self.rotate_current_page).grid(row=4,column=0, padx=5, pady=5)
 
         self.canvas = tk.Canvas(frm, bg="white")
-        self.canvas.grid(row=2, column=6, sticky='nsew')
-
+        self.canvas.grid(row=2, column=2, sticky='nsew', columnspan=1, padx=5, pady=5)
 
         self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.canvas.config(width=700, height=800)
@@ -90,30 +92,29 @@ class PDFViewer:
             self.load_pdf(file_path)  # Load the selected PDF file
             self.show_page()  # Display the first page of the loaded PDF
 
-    # Method to load the PDF file
     def load_pdf(self, pdf_path):
         self.pdf_path = pdf_path  # Store the path of the loaded PDF
         self.document = fitz.open(pdf_path)  # Open the PDF file using PyMuPDF
         self.page_number = self.page_number  # open current page number on rotated pdf
 
-
-    # Method to display the current page
     def show_page(self):
         if not self.document:
             return  # Return if no document is loaded
 
         # Render the current page as a pixmap (an image) with zoom
         page = self.document.load_page(self.page_number)
-        zoom_x = 700 / page.rect.width
-        zoom_y = 800 / page.rect.height
+        self.width = page.rect.width
+        self.height = page.rect.height
 
-        mat = fitz.Matrix(zoom_x, zoom_y)  # Create transformation matrix for zoom
+        mat = fitz.Matrix(self.zoom, self.zoom)  # Create transformation matrix for zoom
 
         pix = page.get_pixmap(matrix=mat)
 
         img = PhotoImage(data=pix.tobytes("ppm"))  # Convert the pixmap to a Tkinter PhotoImage
 
         # Clear the previous image if any
+        self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.canvas.config(width=self.width, height=self.height)
         self.canvas.delete("all")
 
         # Create a label to display the image and add it to the canvas
