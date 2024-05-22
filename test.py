@@ -14,6 +14,7 @@ class PDFViewer:
         self.document = None  # PyMuPDF document object
         self.page_number = 0  # Start displaying from the first page
         self.zoom = 1
+        self.zoom_factor = 1
         self.width = 550
         self.height = 610
 
@@ -29,59 +30,46 @@ class PDFViewer:
         ])
 
         frm = ttk.Frame(root, padding="3 12 3 12", style='Main.TFrame')
-        frm.pack(fill='both', expand=True, padx=20, pady=20)
+        frm.pack(fill='both', expand=True)
 
-        Grid.columnconfigure(frm, 2, weight=2)
-        Grid.rowconfigure(frm, 2, weight=2)
+        menubar = tk.Menu(root)
+        filemenu = tk.Menu(menubar, tearoff=0)
+        filemenu.add_command(label="Open", command=self.open_pdf)
+        filemenu.add_separator()
+        filemenu.add_command(label="Quit", command=root.quit)
+        menubar.add_cascade(label="File", menu=filemenu)
 
-        #self.master.bind("<Configure>", self.dynamic_canvas)
+        root.config(menu=menubar)
 
-        btn_zoom_in = Button(frm, text="Zoom In", command=self.zoom_in).grid(row=0, column=1, sticky='e', padx=5, pady=5)
+        btn_zoom_in = Button(frm, text="Zoom In", command=self.zoom_in).place(relx=0.24, rely=0.11)
 
-        btn_zoom_out = Button(frm, text="Zoom Out", command=self.zoom_out).grid(row=0, column=3, sticky='w',padx=5, pady=5)
+        btn_prev = Button(frm, text="<< Previous", command=self.show_previous_page).place(relx=0.278, rely=0.15, anchor='ne')
 
-        btn_prev = Button(frm, text="<< Previous", command=self.show_previous_page).grid(row=1, column=1, sticky='e', padx=5, pady=5)
+        btn_text = Button(frm, text="Show Text", command=self.show_text_window)
 
-        btn_next = Button(frm, text="Next >>", command=self.show_next_page).grid(row=1, column=3, sticky='w', padx=5, pady=5)
+        btn_merge = Button(frm, text="Merge PDFs", command=self.merge)
 
-        btn_open = Button(frm, text="Open PDF", command=self.open_pdf).grid(row=3, column=1, padx=5, pady=5)
-
-        btn_text = Button(frm, text="Show Text", command=self.show_text_window).grid(row=5,column=1, padx=5, pady=5)
-
-        btn_merge = Button(frm, text="Merge PDFs", command=self.merge).grid(row=5,column=0, padx=5, pady=5)
-
-        btn_rotate = Button(frm, text="Rotate Page", command=self.rotate_current_page).grid(row=4,column=0, padx=5, pady=5)
+        btn_rotate = Button(frm, text="Rotate Page", command=self.rotate_current_page)
 
         self.canvas = tk.Canvas(frm, bg="white")
-        self.canvas.grid(row=2, column=2, sticky='nsew', columnspan=1, padx=5, pady=5)
-
         self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        self.canvas.config(width=700, height=800)
+        self.canvas.config(width=550, height=610)
 
-        # Create vertical and horizontal scrollbars
-        #self.v_scroll = tk.Scrollbar(frm, orient=tk.VERTICAL, command=self.canvas.yview)
-        #self.v_scroll.pack(side=tk.RIGHT, fill=tk.Y)  # Attach vertical scrollbar to the right side
-        #self.h_scroll = tk.Scrollbar(frm, orient=tk.HORIZONTAL, command=self.canvas.xview)
-        #self.h_scroll.pack(side=tk.BOTTOM, fill=tk.X)  # Attach horizontal scrollbar to the bottom
+        btn_zoom_out = Button(frm, text="Zoom Out", command=self.zoom_out).place(relx=0.72, rely=0.11)
+        btn_next = Button(frm, text="Next >>", command=self.show_next_page).place(relx=0.72, rely=0.15)
+
+        self.v_scroll = tk.Scrollbar(frm, orient=tk.VERTICAL, command=self.canvas.yview)
+        #self.v_scroll
+
+        self.h_scroll = tk.Scrollbar(frm, orient=tk.HORIZONTAL, command=self.canvas.xview)
+        #self.h_scroll
 
         # Configure the canvas to work with the scrollbars
-        #self.canvas.config(yscrollcommand=self.v_scroll.set, xscrollcommand=self.h_scroll.set)
-        #self.canvas.bind('<Configure>', self.on_resize)  # Bind the resize event to the on_resize method
+        self.canvas.config(yscrollcommand=self.v_scroll.set, xscrollcommand=self.h_scroll.set)
 
         # Setup a label widget for displaying the current page number
-        #self.page_label = Label(frm, text="")
-        #self.page_label.pack()  # Pack the label widget into the frame
-
-    # def dynamic_canvas(self, event):
-    #
-    #     window_width = self.master.winfo_width()
-    #     window_height = self.master.winfo_height()
-    #
-    #     canvas_width = min(700, window_width)
-    #     canvas_height = min(800, window_height)
-    #
-    #     self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-    #     self.canvas.config(width=canvas_width, height=canvas_height)
+        self.page_label = ttk.Label(frm, text="")
+        #self.page_label
 
     def open_pdf(self):
         file_path = filedialog.askopenfilename(
@@ -227,7 +215,7 @@ class PDFViewer:
 # Create the main window for the application
 root = tk.Tk()
 root.title("PDF Viewer")  # Set the window title
-root.geometry("1200x800")  # Set the initial window size to be larger
+root.geometry("1400x1000")  # Set the initial window size to be larger
 
 # Create an instance of the PDFViewer class with the main window and initial PDF file
 app = PDFViewer(root)
