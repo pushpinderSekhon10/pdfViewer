@@ -39,13 +39,19 @@ class PDFViewer:
         filemenu.add_command(label="Quit", command=root.quit)
         menubar.add_cascade(label="File", menu=filemenu)
 
+        editmenu = tk.Menu(menubar, tearoff=0)
+        editmenu.add_command(label="Show Text", command=self.show_text_window)
+        editmenu.add_command(label="Merge", command=self.merge)
+        editmenu.add_command(label="Split")
+        editmenu.add_command(label="Add Image")
+        editmenu.add_command(label="Edit Text")
+        menubar.add_cascade(label="Edit", menu=editmenu)
+
         root.config(menu=menubar)
 
         btn_zoom_in = Button(frm, text="Zoom In", command=self.zoom_in).place(relx=0.24, rely=0.11)
 
         btn_prev = Button(frm, text="<< Previous", command=self.show_previous_page).place(relx=0.278, rely=0.15, anchor='ne')
-
-        btn_text = Button(frm, text="Show Text", command=self.show_text_window)
 
         btn_merge = Button(frm, text="Merge PDFs", command=self.merge)
 
