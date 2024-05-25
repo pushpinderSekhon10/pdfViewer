@@ -3,7 +3,6 @@ import tkinter as tk  # Tkinter: Used for creating GUI applications in Python
 from tkinter import *  # Import all Tkinter classes and constants
 from tkinter import ttk, filedialog  # ttk for themed widgets, filedialog for file selection dialog
 from PyPDF2 import PdfReader, PdfWriter  # PdfReader and PdfWriter: Used for reading and writing PDF files
-from scrolledcanvas import ScrolledCanvas
 
 # Define a class for our PDF viewer application
 class PDFViewer:
