@@ -3,6 +3,7 @@ import tkinter as tk  # Tkinter: Used for creating GUI applications in Python
 from tkinter import *  # Import all Tkinter classes and constants
 from tkinter import ttk, filedialog  # ttk for themed widgets, filedialog for file selection dialog
 from PyPDF2 import PdfReader, PdfWriter  # PdfReader and PdfWriter: Used for reading and writing PDF files
+from scrolledcanvas import ScrolledCanvas
 
 # Define a class for our PDF viewer application
 class PDFViewer:
@@ -29,8 +30,8 @@ class PDFViewer:
             ]})
         ])
 
-        frm = ttk.Frame(root, padding="3 12 3 12", style='Main.TFrame')
-        frm.pack(fill='both', expand=True)
+        self.frm = ttk.Frame(root, padding="3 12 3 12", style='Main.TFrame')
+        self.frm.pack(fill='both', expand=True)
 
         menubar = tk.Menu(root)
         filemenu = tk.Menu(menubar, tearoff=0)
@@ -49,33 +50,32 @@ class PDFViewer:
 
         root.config(menu=menubar)
 
-        btn_zoom_in = Button(frm, text="Zoom In", command=self.zoom_in).place(relx=0.24, rely=0.11)
+        btn_zoom_in = Button(self.frm, text="Zoom In", command=self.zoom_in).place(relx=0.24, rely=0.11)
 
-        btn_prev = Button(frm, text="<< Previous", command=self.show_previous_page).place(relx=0.278, rely=0.15, anchor='ne')
+        btn_prev = Button(self.frm, text="<< Previous", command=self.show_previous_page).place(relx=0.278, rely=0.15, anchor='ne')
 
-        btn_merge = Button(frm, text="Merge PDFs", command=self.merge)
+        btn_merge = Button(self.frm, text="Merge PDFs", command=self.merge)
 
-        btn_rotate = Button(frm, text="Rotate Page", command=self.rotate_current_page)
+        btn_rotate = Button(self.frm, text="Rotate Page", command=self.rotate_current_page)
 
-        self.canvas = tk.Canvas(frm, bg="white")
+        self.canvas = tk.Canvas(self.frm, bg="white")
         self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.canvas.config(width=550, height=610)
 
-        btn_zoom_out = Button(frm, text="Zoom Out", command=self.zoom_out).place(relx=0.72, rely=0.11)
-        btn_next = Button(frm, text="Next >>", command=self.show_next_page).place(relx=0.72, rely=0.15)
+        btn_zoom_out = Button(self.frm, text="Zoom Out", command=self.zoom_out).place(relx=0.72, rely=0.11)
+        btn_next = Button(self.frm, text="Next >>", command=self.show_next_page).place(relx=0.72, rely=0.15)
 
-        self.v_scroll = tk.Scrollbar(frm, orient=tk.VERTICAL, command=self.canvas.yview)
-        #self.v_scroll
-
-        self.h_scroll = tk.Scrollbar(frm, orient=tk.HORIZONTAL, command=self.canvas.xview)
-        #self.h_scroll
-
-        # Configure the canvas to work with the scrollbars
-        self.canvas.config(yscrollcommand=self.v_scroll.set, xscrollcommand=self.h_scroll.set)
+        self.frm.bind_all("<MouseWheel>", self.on_mouse_scroll)
 
         # Setup a label widget for displaying the current page number
-        self.page_label = ttk.Label(frm, text="")
+        self.page_label = ttk.Label(self.frm, text="")
         #self.page_label
+
+    def on_mouse_scroll(self, event):
+        if event.delta < 0:
+            self.show_next_page()
+        elif event.delta > 0:
+            self.show_previous_page()
 
     def open_pdf(self):
         file_path = filedialog.askopenfilename(
@@ -100,44 +100,49 @@ class PDFViewer:
         self.width = page.rect.width
         self.height = page.rect.height
 
-        mat = fitz.Matrix(self.zoom, self.zoom)  # Create transformation matrix for zoom
-
+        mat = fitz.Matrix(self.zoom_factor, self.zoom_factor)  # Create transformation matrix for zoom
         pix = page.get_pixmap(matrix=mat)
-
         img = PhotoImage(data=pix.tobytes("ppm"))  # Convert the pixmap to a Tkinter PhotoImage
 
+        cvFrm = ttk.Frame(self.frm, width=self.width + 40, height=self.height)
+        cvFrm.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+
+        canvas = tk.Canvas(cvFrm, bg="white")
+
+        canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        canvas.config(width=self.width, height=self.height)
+        canvas.delete("all")
         # Clear the previous image if any
-        self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-        self.canvas.config(width=self.width, height=self.height)
-        self.canvas.delete("all")
 
         # Create a label to display the image and add it to the canvas
-        self.image_label = Label(self.canvas, image=img)
+        self.image_label = Label(canvas, image=img)
         self.image_label.image = img  # Keep a reference to avoid garbage collection
-        self.image_label.pack()
+        self.image_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
         # Add the image label to the canvas
-        self.canvas.create_window((0, 0), window=self.image_label, anchor='nw')
+        canvas.create_window((0, 0), window=self.image_label, anchor='nw')
+
+        self.v_scroll = tk.Scrollbar(cvFrm, orient=tk.VERTICAL, command=self.canvas.yview)
+        self.v_scroll.place(relx=1, anchor=tk.E, relheight=1)
+
+        canvas.config(yscrollcommand=self.v_scroll.set)
 
         # Update the scroll region to encompass the new image
-        self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
+        canvas.config(scrollregion=canvas.bbox(tk.ALL))
 
         # Update the page label with the current page
         self.page_label.config(text=f"Page {self.page_number + 1} of {len(self.document)}")
 
-    # Method to show the previous page of the PDF
     def show_previous_page(self):
         if self.page_number > 0:
             self.page_number -= 1
             self.show_page()  # Update the display to the previous page
 
-    # Method to show the next page of the PDF
     def show_next_page(self):
         if self.page_number < len(self.document) - 1:
             self.page_number += 1
             self.show_page()  # Update the display to the next page
 
-    # Method to show the text of the current PDF page
     def show_text_window(self):
         if not self.pdf_path:
             return  # Return if no PDF is loaded
@@ -158,7 +163,6 @@ class PDFViewer:
         text_area.insert(tk.END, text if text else "No text found on this page.")  # Insert text
         self.center_window(text_window)  # Center the text window
 
-    # Method to center a window on the screen
     def center_window(self, window):
         window.update_idletasks()  # Update the window's widget tree to ensure dimensions are updated
         screen_width = window.winfo_screenwidth()  # Get the screen width
@@ -168,7 +172,6 @@ class PDFViewer:
         y = screen_height // 2 - size[1] // 2  # Calculate y position to center the window
         window.geometry("+{}+{}".format(x, y))  # Set the geometry of the window to center it
 
-    # Method to merge PDFs
     def merge(self):
         merger = PdfWriter()  # Create a PdfWriter object
         for pdf in ['sample-1.pdf', 'test.pdf']:  # List of PDFs to merge
@@ -177,7 +180,6 @@ class PDFViewer:
         merger.write("merged-pdf.pdf")  # Write the merged PDF to a file
         merger.close()  # Close the merger
 
-    # Method to rotate the current page of the PDF
     def rotate_current_page(self):
         if not self.pdf_path:
             return  # Return if no PDF is loaded
@@ -198,7 +200,6 @@ class PDFViewer:
         self.load_pdf(output_pdf_path)  # Load the rotated PDF
         self.show_page()  # Display the rotated page
 
-    # Method to zoom in
     def zoom_in(self):
         if not self.document:
             return  # Return if no document is loaded
@@ -206,7 +207,6 @@ class PDFViewer:
         self.zoom_factor *= 1.2  # Increase zoom factor by 20%
         self.show_page()  # Update the display with the new zoom factor
 
-    # Method to zoom out
     def zoom_out(self):
         if not self.document:
             return  # Return if no document is loaded
@@ -214,7 +214,6 @@ class PDFViewer:
         self.zoom_factor /= 1.2  # Decrease zoom factor by 20%
         self.show_page()  # Update the display with the new zoom factor
 
-    # Method to handle resizing of the canvas
     def on_resize(self, event):
         self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))  # Update the scroll region
 
