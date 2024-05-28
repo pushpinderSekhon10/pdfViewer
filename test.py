@@ -1,13 +1,18 @@
 import fitz  # PyMuPDF: Used for opening and manipulating PDF files
 import tkinter as tk  # Tkinter: Used for creating GUI applications in Python
 from tkinter import *  # Import all Tkinter classes and constants
-from tkinter import ttk, filedialog  # ttk for themed widgets, filedialog for file selection dialog
+from tkinter import ttk, filedialog, simpledialog, \
+    messagebox  # ttk for themed widgets, filedialog for file selection dialog, simpledialog for input dialogs
 from PyPDF2 import PdfReader, PdfWriter  # PdfReader and PdfWriter: Used for reading and writing PDF files
-
+import os
+import platform
+import subprocess
 # Define a class for our PDF viewer application
 class PDFViewer:
     # Initialization method for the PDFViewer class
     def __init__(self, master):
+        self.bookmarks = {}
+
         # master refers to the main window of the Tkinter application
         self.master = master
         self.pdf_path = None  # Path to the currently loaded PDF file
@@ -39,10 +44,17 @@ class PDFViewer:
         editmenu = tk.Menu(menubar, tearoff=0)
         editmenu.add_command(label="Show Text", command=self.show_text_window)
         editmenu.add_command(label="Merge", command=self.merge)
-        editmenu.add_command(label="Split")
-        editmenu.add_command(label="Add Image")
+        editmenu.add_command(label="Split", command=self.split_dialog)
         editmenu.add_command(label="Edit Text")
         menubar.add_cascade(label="Edit", menu=editmenu)
+        editmenu.add_command(label="Add Image", command=self.add_image)
+        editmenu.add_command(label="Search Text", command=self.search_text)
+        editmenu.add_command(label="Encrypt PDF", command=self.encrypt_pdf)
+        editmenu.add_command(label="Decrypt PDF", command=self.decrypt_pdf)
+        editmenu.add_command(label="Add Bookmark", command=self.add_bookmark)
+        editmenu.add_command(label="Remove Bookmark", command=self.remove_bookmark)
+        editmenu.add_command(label="Go to Bookmark", command=self.navigate_to_bookmark)
+        editmenu.add_command(label="Add Annotation", command=self.add_text_annotation)
 
         root.config(menu=menubar)
 
@@ -82,6 +94,169 @@ class PDFViewer:
             self.show_next_page()
         elif event.delta > 0:
             self.show_previous_page()
+
+    def add_text_annotation(self):
+        if not self.document:
+            return  # Return if no document is loaded
+
+        annotation_text = simpledialog.askstring("Input", "Enter text for annotation:")
+        if not annotation_text:
+            return  # Return if no text is provided
+
+        page_num = simpledialog.askinteger("Input", "Enter page number for annotation:")
+        if not page_num or page_num < 1 or page_num > len(self.document):
+            return  # Return if invalid page number is provided
+
+        x = simpledialog.askfloat("Input", "Enter x-coordinate:")
+        y = simpledialog.askfloat("Input", "Enter y-coordinate:")
+        if x is None or y is None:
+            return  # Return if invalid coordinates are provided
+
+        # Open the PDF with PyMuPDF and add the text annotation
+        page = self.document.load_page(page_num - 1)
+        page.add_freetext_annot(fitz.Rect(x, y, x + 200, y + 50), annotation_text, fontsize=12, rotate=0)
+        self.document.save("annotated.pdf")
+        self.load_pdf("annotated.pdf")  # Reload the modified PDF
+        self.show_page()  # Display the current page
+
+        messagebox.showinfo("Success", f"Annotation added to page {page_num} at ({x}, {y}).")
+
+    def add_bookmark(self):
+        if not self.document:
+            return  # Return if no document is loaded
+
+        bookmark_name = simpledialog.askstring("Input", "Enter a name for the bookmark:")
+        if not bookmark_name:
+            return  # Return if no name is provided
+
+        if bookmark_name in self.bookmarks:
+            messagebox.showwarning("Warning", "Bookmark name already exists.")
+            return
+
+        self.bookmarks[bookmark_name] = self.page_number
+        messagebox.showinfo("Success", f"Bookmark '{bookmark_name}' added for page {self.page_number + 1}.")
+
+    def remove_bookmark(self):
+        if not self.document:
+            return  # Return if no document is loaded
+
+        bookmark_name = simpledialog.askstring("Input", "Enter the name of the bookmark to remove:")
+        if not bookmark_name:
+            return  # Return if no name is provided
+
+        if bookmark_name in self.bookmarks:
+            del self.bookmarks[bookmark_name]
+            messagebox.showinfo("Success", f"Bookmark '{bookmark_name}' removed.")
+        else:
+            messagebox.showwarning("Warning", "Bookmark not found.")
+
+    def navigate_to_bookmark(self):
+        if not self.document:
+            return  # Return if no document is loaded
+
+        bookmark_name = simpledialog.askstring("Input", "Enter the name of the bookmark to navigate to:")
+        if not bookmark_name:
+            return  # Return if no name is provided
+
+        if bookmark_name in self.bookmarks:
+            self.page_number = self.bookmarks[bookmark_name]
+            self.show_page()
+            messagebox.showinfo("Success", f"Navigated to bookmark '{bookmark_name}'.")
+        else:
+            messagebox.showwarning("Warning", "Bookmark not found.")
+
+    def encrypt_pdf(self):
+        if not self.pdf_path:
+            return  # Return if no PDF is loaded
+
+        password = simpledialog.askstring("Input", "Enter password to encrypt PDF:", show='*')
+        if not password:
+            return  # Return if no password is provided
+
+        try:
+            reader = PdfReader(self.pdf_path)
+            writer = PdfWriter()
+
+            for page in reader.pages:
+                writer.add_page(page)
+
+            writer.encrypt(password)
+
+            output_pdf_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")],
+                                                           title="Save Encrypted PDF")
+            if output_pdf_path:
+                with open(output_pdf_path, 'wb') as output_pdf:
+                    writer.write(output_pdf)
+
+                messagebox.showinfo("Success", "PDF encrypted and saved successfully.")
+            else:
+                messagebox.showwarning("Warning", "Save operation cancelled.")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred while encrypting the PDF: {e}")
+
+    def decrypt_pdf(self):
+        if not self.pdf_path:
+            return  # Return if no PDF is loaded
+
+        password = simpledialog.askstring("Input", "Enter password to decrypt PDF:", show='*')
+        if not password:
+            return  # Return if no password is provided
+
+        try:
+            reader = PdfReader(self.pdf_path)
+            if reader.is_encrypted:
+                if not reader.decrypt(password):
+                    messagebox.showerror("Error", "Incorrect password. Please try again.")
+                    return
+
+            writer = PdfWriter()
+
+            for page in reader.pages:
+                writer.add_page(page)
+
+            output_pdf_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")],
+                                                           title="Save Decrypted PDF")
+            if output_pdf_path:
+                with open(output_pdf_path, 'wb') as output_pdf:
+                    writer.write(output_pdf)
+
+                messagebox.showinfo("Success", "PDF decrypted and saved successfully.")
+            else:
+                messagebox.showwarning("Warning", "Save operation cancelled.")
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred while decrypting the PDF: {e}")
+
+    def search_text(self):
+        if not self.pdf_path:
+            return  # Return if no PDF is loaded
+
+        search_query = simpledialog.askstring("Input", "Enter text to search:")
+        if not search_query:
+            return  # Return if no search query is provided
+
+        found = False
+        for page_num in range(len(self.document)):
+            page = self.document.load_page(page_num)
+            text_instances = page.search_for(search_query)
+            if text_instances:
+                found = True
+                self.highlight_text(page_num, text_instances)
+                if not self.page_number == page_num:
+                    self.page_number = page_num
+                    self.show_page()
+                break
+
+        if not found:
+            messagebox.showinfo("Search Result", f"'{search_query}' not found in the document.")
+
+    def highlight_text(self, page_num, text_instances):
+        page = self.document.load_page(page_num)
+        for inst in text_instances:
+            highlight = page.add_highlight_annot(inst)
+            highlight.update()
+        self.document.save("highlighted.pdf")
+        self.load_pdf("highlighted.pdf")
+        self.show_page()
 
     def open_pdf(self):
         file_path = filedialog.askopenfilename(
@@ -195,12 +370,86 @@ class PDFViewer:
         self.load_pdf(output_pdf_path)  # Load the rotated PDF
         self.show_page()  # Display the rotated page
 
+    def split_dialog(self):
+        if not self.pdf_path:
+            return  # Return if no PDF is loaded
+
+        ranges_str = simpledialog.askstring("Input", "Enter page ranges to split (e.g., 1-3,4-5):")
+        if ranges_str:
+            ranges = self.parse_ranges(ranges_str)
+            self.split(ranges)
+
+    def parse_ranges(self, ranges_str):
+        ranges = []
+        for part in ranges_str.split(','):
+            if '-' in part:
+                start, end = map(int, part.split('-'))
+                ranges.append((start, end))
+            else:
+                num = int(part)
+                ranges.append((num, num))
+        return ranges
+
+    def split(self, ranges):
+        if not self.pdf_path:
+            return  # Return if no PDF is loaded
+
+        reader = PdfReader(self.pdf_path)  # Create PdfReader object
+
+        for i, (start, end) in enumerate(ranges):
+            writer = PdfWriter()
+            for j in range(start-1, end):
+                writer.add_page(reader.pages[j])
+
+            output_pdf_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")], title=f"Save Split PDF {i + 1}")
+            if output_pdf_path:
+                with open(output_pdf_path, 'wb') as output_pdf:
+                    writer.write(output_pdf)  # Write the split PDF to a file
+            else:
+                break  # Stop if the user cancels the save dialog
+
     def zoom_in(self):
         if not self.document:
             return  # Return if no document is loaded
 
         self.zoom_factor *= 1.2  # Increase zoom factor by 20%
         self.show_page()  # Update the display with the new zoom factor
+
+    def add_image(self):
+        if not self.pdf_path:
+            return  # Return if no PDF is loaded
+
+        # Prompt the user to select an image file
+        image_path = filedialog.askopenfilename(
+            filetypes=[("Image Files", "*.png;*.jpg;*.jpeg")],  # Filter to show only image files
+            title="Select Image to Add"  # Title of the file dialog
+        )
+        if not image_path:
+            return  # Return if no image is selected
+
+        page_num = simpledialog.askinteger("Input", "Enter page number to add image:")
+        if not page_num or page_num < 1 or page_num > len(self.document):
+            return  # Return if invalid page number is provided
+
+        x = simpledialog.askfloat("Input", "Enter x-coordinate:")
+        y = simpledialog.askfloat("Input", "Enter y-coordinate:")
+        if x is None or y is None:
+            return  # Return if invalid coordinates are provided
+
+        # Open the PDF with PyMuPDF and add the image
+        page = self.document.load_page(page_num - 1)
+        rect = fitz.Rect(x, y, x + 200, y + 200)  # Adjust the size of the image as needed
+        page.insert_image(rect, filename=image_path)
+
+        # Save the modified PDF
+        output_pdf_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF Files", "*.pdf")],
+                                                       title="Save Modified PDF")
+        if output_pdf_path:
+            self.document.save(output_pdf_path)
+            self.load_pdf(output_pdf_path)  # Reload the modified PDF
+            self.show_page()  # Display the current page
+
+        print(f"Image added to page {page_num} at ({x}, {y})")
 
     def zoom_out(self):
         if not self.document:
