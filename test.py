@@ -19,6 +19,7 @@ class PDFViewer:
         self.document = None  # PyMuPDF document object
         self.page_number = 0  # Start displaying from the first page
         self.zoom_factor = 1.0
+        self.h_scroll = None
 
         style = ttk.Style()
         style.configure('Main.TFrame', background='#6FEA99')
@@ -78,16 +79,16 @@ class PDFViewer:
         self.v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
         self.h_scroll = tk.Scrollbar(self.frm, orient=tk.HORIZONTAL, command=self.canvas.xview)
-        self.h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        self.h_scroll.place(relx=0.5, rely=1, anchor=tk.CENTER, relwidth=1)
 
         # Configure the canvas to work with the scrollbars
-        self.canvas.config(yscrollcommand=self.v_scroll.set, xscrollcommand=self.h_scroll.set)
+        self.canvas.config(xscrollcommand=self.h_scroll.set, yscrollcommand=self.v_scroll.set)
 
         self.frm.bind_all("<MouseWheel>", self.on_mouse_scroll)
 
         # Setup a label widget for displaying the current page number
         self.page_label = ttk.Label(self.frm, text="")
-        self.page_label.pack()
+        self.page_label.place(relx=0.5, rely=0, anchor=tk.CENTER)
 
     def on_mouse_scroll(self, event):
         if event.delta < 0:
@@ -278,11 +279,15 @@ class PDFViewer:
 
         # Render the current page as a pixmap (an image) with zoom
         page = self.document.load_page(self.page_number)
-        mat = fitz.Matrix(self.zoom_factor, self.zoom_factor)  # Create transformation matrix for zoom
+        self.width = page.rect.width * 0.97
+        self.height = page.rect.height * 0.97
+
+        mat = fitz.Matrix(self.zoom_factor * 0.97, self.zoom_factor * 0.97)  # Create transformation matrix for zoom
         pix = page.get_pixmap(matrix=mat)
         img = PhotoImage(data=pix.tobytes("ppm"))  # Convert the pixmap to a Tkinter PhotoImage
 
-        # Clear the previous image if any
+        self.canvas.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.canvas.config(width=self.width, height=self.height)
         self.canvas.delete("all")
 
         # Create a label to display the image and add it to the canvas
@@ -292,6 +297,10 @@ class PDFViewer:
 
         # Add the image label to the canvas
         self.canvas.create_window((0, 0), window=self.image_label, anchor='nw')
+
+        self.h_scroll.config(command=self.canvas.xview)
+        self.v_scroll.config(command=self.canvas.yview)
+        self.canvas.config(xscrollcommand=self.h_scroll.set, yscrollcommand=self.v_scroll.set)
 
         # Update the scroll region to encompass the new image
         self.canvas.config(scrollregion=self.canvas.bbox(tk.ALL))
